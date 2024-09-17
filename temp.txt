@@ -1,0 +1,240 @@
+import React, { useState, useEffect } from 'react';
+import './AccountsPage.css'; // Import the CSS file
+import axios from 'axios';
+
+interface Account {
+  accountNumber: string;
+  balance: number;
+}
+
+interface Transaction {
+  transactionId: string;
+  amount: number;
+  date: string;
+}
+
+const AccountsPage: React.FC = () => {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+
+  const jwtToken = localStorage.getItem('jwtToken'); // Assuming JWT is stored in localStorage
+
+  useEffect(() => {
+    // Fetch user's accounts
+    axios
+      .get('/api/accounts', { headers: { Authorization: `Bearer ${jwtToken}` } })
+      .then((res) => setAccounts(res.data))
+      .catch((err) => console.error(err));
+
+    // Fetch user's last 5 transactions
+    axios
+      .get('/api/transactions/last5', { headers: { Authorization: `Bearer ${jwtToken}` } })
+      .then((res) => setTransactions(res.data))
+      .catch((err) => console.error(err));
+  }, [jwtToken]);
+
+  const handleCreateAccount = () => {
+    setShowAccountModal(true);
+  };
+
+  const handleCreateTransaction = () => {
+    setShowTransactionModal(true);
+  };
+
+  return (
+    <div className="accounts-page">
+      <div className="accounts-container">
+        <h3>Your Accounts</h3>
+        <div className="accounts-list">
+          {accounts.map((account) => (
+            <div className="account-item" key={account.accountNumber}>
+              <span>Account: {account.accountNumber}</span>
+              <span>Balance: ${account.balance.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+        <button className="create-account-btn" onClick={handleCreateAccount}>
+          Create New Account
+        </button>
+      </div>
+
+      <div className="transactions-container">
+        <h3>Recent Transactions</h3>
+        <ul className="transactions-list">
+          {transactions.map((transaction) => (
+            <li className="transaction-item" key={transaction.transactionId}>
+              <span>Amount: ${transaction.amount}</span>
+              <span>Date: {new Date(transaction.date).toLocaleDateString()}</span>
+            </li>
+          ))}
+        </ul>
+        <button className="create-transaction-btn" onClick={handleCreateTransaction}>
+          Create New Transaction
+        </button>
+      </div>
+
+      {/* Create Account Modal */}
+      {showAccountModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Create New Account</h3>
+            {/* Add form for creating new account */}
+            <form>
+              <label>Initial Deposit:</label>
+              <input type="number" placeholder="Enter deposit amount" />
+              <button type="submit">Create Account</button>
+            </form>
+            <button className="close-modal" onClick={() => setShowAccountModal(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create Transaction Modal */}
+      {showTransactionModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Create New Transaction</h3>
+            {/* Add form for creating new transaction */}
+            <form>
+              <label>Amount:</label>
+              <input type="number" placeholder="Enter amount" />
+              <label>Recipient Account:</label>
+              <input type="text" placeholder="Enter recipient account number" />
+              <button type="submit">Send</button>
+            </form>
+            <button className="close-modal" onClick={() => setShowTransactionModal(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AccountsPage;
+
+
+/* General Page Layout */
+.accounts-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #f4f4f4;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+/* Accounts Section */
+.accounts-container {
+  width: 300px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.accounts-list {
+  margin-bottom: 20px;
+}
+
+.account-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #e3f2fd;
+  border-radius: 5px;
+  border: 1px solid #bbdefb;
+}
+
+.create-account-btn {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-account-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Transactions Section */
+.transactions-container {
+  width: 100%;
+  max-width: 600px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  border-radius: 10px;
+}
+
+.transactions-list {
+  margin-bottom: 20px;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #e8f5e9;
+  border-radius: 5px;
+  border: 1px solid #c8e6c9;
+}
+
+.create-transaction-btn {
+  padding: 10px 20px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-transaction-btn:hover {
+  background-color: #218838;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  width: 400px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.close-modal {
+  margin-top: 20px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.close-modal:hover {
+  background-color: #c82333;
+}
