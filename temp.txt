@@ -1,71 +1,107 @@
-/* AccountsPage.css */
-.accounts-page {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-}
+import com.github.tomakehurst.wiremock.WireMockServer;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
-.accounts-container,
-.transactions-container {
-  margin-bottom: 20px;
-}
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.webhooks.Webhooks.*;
 
-.accounts-list {
-  margin-bottom: 10px;
-}
+@Component
+public class WireMockPOC implements CommandLineRunner {
 
-.account-item {
-  padding: 10px;
-  border: 1px solid #ccc;
-  margin-bottom: 5px;
-  cursor: pointer;
-}
+    @Override
+    public void run(String... args) throws Exception {
+        WireMockServer wireMockServer = new WireMockServer(8080); // Run WireMock on port 8080
+        wireMockServer.start();
 
-.account-item.selected {
-  background-color: #e0e0e0;
-}
+        // Synchronous Response
+        wireMockServer.stubFor(get(urlEqualTo("/api/sync"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("Synchronous response received!")
+            ));
 
-.transactions-list {
-  list-style-type: none;
-  padding: 0;
-}
+        // Delayed Response
+        wireMockServer.stubFor(get(urlEqualTo("/api/delayed"))
+            .willReturn(aResponse()
+                .withFixedDelay(3000)  // 3 seconds delay
+                .withStatus(200)
+                .withBody("Delayed response received!")
+            ));
 
-.transaction-item {
-  padding: 10px;
-  border: 1px solid #ccc;
-  margin-bottom: 5px;
-}
+        // Asynchronous Response (Using Webhooks)
+        wireMockServer.stubFor(post(urlPathEqualTo("/api/async"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("IN-PROGRESS"))
+            .withServeEventListener("webhook", webhook()
+                .withMethod(POST)
+                .withUrl("http://localhost:8081/api/transaction/status")
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"transactionId\": \"123\", \"status\": \"SUCCESS\"}")
+                .withDelay(5000)));  // 5 seconds webhook delay for async flow
 
-.create-account-btn,
-.create-transaction-btn {
-  padding: 10px 20px;
-  margin-top: 10px;
-}
+        // Response Based on Input Request (Dynamic)
+        wireMockServer.stubFor(post(urlPathEqualTo("/api/dynamic-response"))
+            .withRequestBody(matchingJsonPath("$.type", equalTo("A")))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("{\"response\": \"Type A response\"}"))
+        );
 
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+        wireMockServer.stubFor(post(urlPathEqualTo("/api/dynamic-response"))
+            .withRequestBody(matchingJsonPath("$.type", equalTo("B")))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("{\"response\": \"Type B response\"}"))
+        );
 
-.modal-content {
-  background: #fff;
-  padding: 20px;
-  border-radius: 5px;
-  width: 300px;
+        System.out.println("WireMock server running...");
+    }
 }
+////////////////////////
+@SpringBootTest
+@AutoConfigureMockMvc
+public class WireMockPOCTests {
 
-.close-modal {
-  margin-top: 10px;
-  padding: 10px;
-  background: #f44336;
-  color: #fff;
-  border: none;
-  cursor: pointer;
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    public void testSyncResponse() throws Exception {
+        mockMvc.perform(get("/api/sync"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("Synchronous response received!"));
+    }
+
+    @Test
+    public void testDelayedResponse() throws Exception {
+        long startTime = System.currentTimeMillis();
+
+        mockMvc.perform(get("/api/delayed"))
+            .andExpect(status().isOk())
+            .andExpect(content().string("Delayed response received!"));
+
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        assertTrue(elapsedTime >= 3000);  // Ensure delay occurred
+    }
+
+    @Test
+    public void testDynamicResponseTypeA() throws Exception {
+        mockMvc.perform(post("/api/dynamic-response")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{ \"type\": \"A\" }"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("{ \"response\": \"Type A response\" }"));
+    }
+
+    @Test
+    public void testDynamicResponseTypeB() throws Exception {
+        mockMvc.perform(post("/api/dynamic-response")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{ \"type\": \"B\" }"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("{ \"response\": \"Type B response\" }"));
+    }
+
+    // You can add more tests for async scenarios
 }
