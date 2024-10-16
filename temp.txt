@@ -1,3 +1,46 @@
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)  // Use random port for the Spring Boot app
+public class WireMockPOCTests {
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Test
+    public void testSyncResponseFromWireMock() {
+        // Call the WireMock server (on port 8080)
+        ResponseEntity<String> response = restTemplate.getForEntity("http://localhost:8080/api/sync", String.class);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Synchronous response received!", response.getBody());
+    }
+
+    @Test
+    public void testDelayedResponseFromWireMock() {
+        long startTime = System.currentTimeMillis();
+
+        // Call the WireMock server (on port 8080)
+        ResponseEntity<String> response = restTemplate.getForEntity("http://localhost:8080/api/delayed", String.class);
+
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        assertTrue(elapsedTime >= 3000);  // Verify 3 seconds delay
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Delayed response received!", response.getBody());
+    }
+
+    // Add more tests for async and dynamic responses
+}
+
+
+
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
