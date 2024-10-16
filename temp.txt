@@ -1,3 +1,81 @@
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/transaction")
+public class TransactionController {
+
+    private final Map<String, String> transactionStatusMap = new HashMap<>();
+
+    // API to create a transaction and make the async call to WireMock
+    @PostMapping
+    public ResponseEntity<String> createTransaction() {
+        String transactionId = UUID.randomUUID().toString();  // Generate transaction ID
+        transactionStatusMap.put(transactionId, "IN-PROGRESS");  // Initially, set status to IN-PROGRESS
+
+        // Make a call to WireMock at 8081 to simulate async processing
+        // Assuming RestTemplate is used for making the API call
+        RestTemplate restTemplate = new RestTemplate();
+        String wireMockUrl = "http://localhost:8081/api/async";
+        Map<String, String> requestBody = Map.of("transactionId", transactionId);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(wireMockUrl, requestBody, String.class);
+        if (response.getStatusCode().is2xxSuccessful()) {
+            return ResponseEntity.ok("Transaction initiated with ID: " + transactionId);
+        } else {
+            return ResponseEntity.status(response.getStatusCode()).body("Failed to initiate transaction");
+        }
+    }
+
+    // API to update the transaction status after webhook is triggered
+    @PostMapping("/status/{transactionId}")
+    public ResponseEntity<String> updateTransactionStatus(@PathVariable String transactionId, @RequestBody Map<String, String> body) {
+        String newStatus = body.get("status");
+        if (transactionStatusMap.containsKey(transactionId)) {
+            transactionStatusMap.put(transactionId, newStatus);
+            return ResponseEntity.ok("Transaction " + transactionId + " updated to " + newStatus);
+        } else {
+            return ResponseEntity.status(404).body("Transaction ID not found");
+        }
+    }
+
+    // Optional: API to check the status of a transaction
+    @GetMapping("/{transactionId}")
+    public ResponseEntity<String> getTransactionStatus(@PathVariable String transactionId) {
+        String status = transactionStatusMap.get(transactionId);
+        if (status != null) {
+            return ResponseEntity.ok("Status of transaction " + transactionId + " is " + status);
+        } else {
+            return ResponseEntity.status(404).body("Transaction ID not found");
+        }
+    }
+}
+
+
+
+
+
+ wireMockServer.stubFor(post(urlPathEqualTo("/api/async"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("{\"status\": \"IN-PROGRESS\", \"transactionId\": \"{{jsonPath request.body '$.transactionId'}}\"}")
+                .withTransformers("response-template"))  // To use JSON path in the response body
+            .withServeEventListener("webhook", webhook()
+                .withMethod(POST)
+                .withUrl("http://localhost:8080/api/transaction/status/{{jsonPath request.body '$.transactionId'}}")
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"status\": \"SUCCESS\"}")
+                .withDelay(5000)));
+
+
+
+
+
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.beans.factory.annotation.Autowired;
