@@ -1,3 +1,42 @@
+implements CommandLineRunner {
+
+    @Override
+    public void run(String... args) throws Exception {
+        WireMockServer wireMockServer = new WireMockServer(8081);  // Running WireMock on port 8081
+        wireMockServer.start();
+
+        // Stub for positive amount -> 200 OK
+        wireMockServer.stubFor(post(urlEqualTo("/api/amount-check"))
+            .withRequestBody(matchingJsonPath("$.amount", greaterThan(0)))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{ \"message\": \"Transaction successful\", \"status\": \"SUCCESS\" }"))
+        );
+
+        // Stub for negative amount -> 400 Bad Request
+        wireMockServer.stubFor(post(urlEqualTo("/api/amount-check"))
+            .withRequestBody(matchingJsonPath("$.amount", lessThan(0)))
+            .willReturn(aResponse()
+                .withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{ \"message\": \"Transaction failed: Negative amount\", \"status\": \"FAILED\" }"))
+        );
+
+        // Optional: Stub for amount equal to 0 -> Custom message
+        wireMockServer.stubFor(post(urlEqualTo("/api/amount-check"))
+            .withRequestBody(matchingJsonPath("$.amount", equalTo(0)))
+            .willReturn(aResponse()
+                .withStatus(400)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{ \"message\": \"Transaction failed: Amount cannot be zero\", \"status\": \"FAILED\" }"))
+        );
+
+        System.out.println("WireMock server is running on port 8081...");
+    }
+}
+
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
