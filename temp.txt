@@ -1,3 +1,68 @@
+import com.github.tomakehurst.wiremock.extension.Parameters;
+import com.github.tomakehurst.wiremock.http.ResponseDefinition;
+import com.github.tomakehurst.wiremock.http.Request;
+import com.github.tomakehurst.wiremock.http.Response;
+import com.github.tomakehurst.wiremock.extension.ResponseTransformer;
+
+public class DelayedResponseTransformer extends ResponseTransformer {
+
+    @Override
+    public Response transform(Request request, ResponseDefinition responseDefinition, Parameters parameters) {
+        // Extract the delay value from the request header
+        String delayHeader = request.getHeader("X-Delay");
+        int delay = delayHeader != null ? Integer.parseInt(delayHeader) : 0;
+
+        // Modify the response to include the delay in the body
+        String responseBody = "{ \"message\": \"Delayed response\", \"delay\": " + delay + " }";
+
+        // Return the response with the fixed delay applied
+        return Response.Builder.like(responseDefinition)
+                .but()
+                .body(responseBody)
+                .withFixedDelay(delay)  // Apply the delay from the header
+                .build();
+    }
+
+    @Override
+    public String getName() {
+        return "delayed-response-transformer";
+    }
+
+    @Override
+    public boolean applyGlobally() {
+        return false;  // Apply only when explicitly used
+    }
+}
+
+import com.github.tomakehurst.wiremock.WireMockServer;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+
+@Component
+public class WireMockComponent implements CommandLineRunner {
+
+    @Override
+    public void run(String... args) throws Exception {
+        WireMockServer wireMockServer = new WireMockServer(8081);  // Running WireMock on port 8081
+        wireMockServer.start();
+
+        // Stub using the custom transformer
+        wireMockServer.stubFor(post(urlEqualTo("/api/delayed"))
+            .willReturn(aResponse()
+                .withHeader("Content-Type", "application/json")
+                .withTransformer("delayed-response-transformer")
+            )
+        );
+
+        System.out.println("WireMock server is running on port 8081...");
+    }
+}
+
+
+
+
 .andMatching((Request request) -> {
                 try {
                     ObjectMapper objectMapper = new ObjectMapper();
