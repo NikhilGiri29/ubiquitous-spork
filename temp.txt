@@ -1,3 +1,29 @@
+.andMatching((Request request) -> {
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode jsonNode = objectMapper.readTree(request.getBodyAsString());
+
+                    if (jsonNode.has("amount")) {
+                        int amount = jsonNode.get("amount").asInt();
+
+                        // Positive amount check
+                        if (amount > 0) {
+                            return MatchResult.exactMatch();
+                        } else {
+                            return MatchResult.noMatch();  // Trigger a failure
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return MatchResult.noMatch();  // No match if 'amount' field is missing or invalid
+            })
+
+
+
+
+
+
 implements CommandLineRunner {
 
     @Override
