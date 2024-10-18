@@ -3,6 +3,68 @@ import com.github.tomakehurst.wiremock.http.ResponseDefinition;
 import com.github.tomakehurst.wiremock.http.Request;
 import com.github.tomakehurst.wiremock.http.Response;
 import com.github.tomakehurst.wiremock.extension.ResponseTransformer;
+import com.github.tomakehurst.wiremock.http.Fault;
+
+public class DelayedResponseTransformer extends ResponseTransformer {
+
+    @Override
+    public Response transform(Request request, ResponseDefinition responseDefinition, Parameters parameters) {
+        // Check if the 'fault' header is present and set to true
+        String faultHeader = request.getHeader("fault");
+        if (faultHeader != null && faultHeader.equalsIgnoreCase("true")) {
+            // Handle fault condition based on another header
+            String errorType = request.getHeader("error-type");
+
+            if ("failure".equalsIgnoreCase(errorType)) {
+                // Return a failure state with valid status code but error message
+                return Response.Builder.like(responseDefinition)
+                        .but()
+                        .status(200)  // Simulate a success status but with a failure message
+                        .body("{ \"message\": \"Failure state: operation failed despite success status\" }")
+                        .build();
+
+            } else if ("no-response".equalsIgnoreCase(errorType)) {
+                // Simulate a dropped connection or no response at all
+                return Response.Builder.like(responseDefinition)
+                        .but()
+                        .fault(Fault.EMPTY_RESPONSE)  // No response is sent at all
+                        .build();
+            }
+        }
+
+        // Extract the delay value from the request header if no fault is present
+        String delayHeader = request.getHeader("X-Delay");
+        int delay = delayHeader != null ? Integer.parseInt(delayHeader) : 0;
+
+        // Construct the normal delayed response
+        String responseBody = "{ \"message\": \"Delayed response\", \"delay\": " + delay + " }";
+
+        // Return the response with the fixed delay applied
+        return Response.Builder.like(responseDefinition)
+                .but()
+                .body(responseBody)
+                .withFixedDelay(delay)  // Apply the delay from the header
+                .build();
+    }
+
+    @Override
+    public String getName() {
+        return "delayed-response-transformer";
+    }
+
+    @Override
+    public boolean applyGlobally() {
+        return false;  // Apply only when explicitly used
+    }
+}
+
+
+
+import com.github.tomakehurst.wiremock.extension.Parameters;
+import com.github.tomakehurst.wiremock.http.ResponseDefinition;
+import com.github.tomakehurst.wiremock.http.Request;
+import com.github.tomakehurst.wiremock.http.Response;
+import com.github.tomakehurst.wiremock.extension.ResponseTransformer;
 
 public class DelayedResponseTransformer extends ResponseTransformer {
 
