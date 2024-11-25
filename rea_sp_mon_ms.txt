@@ -1,0 +1,547 @@
+	implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+
+
+
+Book:
+  ##################################################################################Controller
+package com.example.bookservice.controller;
+
+import com.example.bookservice.model.Book;
+import com.example.bookservice.service.BookService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+@CrossOrigin("*")
+@RestController
+@RequestMapping("/api/books")
+public class BookController {
+
+    private final BookService bookService;
+
+    public BookController(BookService bookService) {
+        this.bookService = bookService;
+    }
+
+    @GetMapping
+    public List<Book> getAllBooks() {
+        return bookService.getAllBooks();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Book> getBookById(@PathVariable String id) {
+        Book book = bookService.getBookById(id);
+        return book != null ? ResponseEntity.ok(book) : ResponseEntity.notFound().build();
+    }
+
+    @PostMapping
+    public Book createBook(@Valid @RequestBody Book book) {
+        return bookService.createBook(book);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Book> updateBook(@PathVariable String id, @Valid @RequestBody Book updatedBook) {
+        Book book = bookService.updateBook(id, updatedBook);
+        return book != null ? ResponseEntity.ok(book) : ResponseEntity.notFound().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable String id) {
+        bookService.deleteBook(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+##################################################################################Model
+package com.example.bookservice.model;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import jakarta.validation.constraints.NotBlank;
+
+@Document(collection = "books")
+public class Book {
+
+    @Id
+    private String id;
+
+    @NotBlank(message = "Title is required")
+    private String title;
+
+    @NotBlank(message = "Author is required")
+    private String author;
+
+    private String description;
+
+    public Book() {}
+
+    public Book(String title, String author, String description) {
+        this.title = title;
+        this.author = author;
+        this.description = description;
+    }
+
+    // Getters and Setters
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(String author) {
+        this.author = author;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+}
+##################################################################################Repository
+package com.example.bookservice.repository;
+
+import com.example.bookservice.model.Book;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+public interface BookRepository extends MongoRepository<Book, String> {}
+##################################################################################Service
+package com.example.bookservice.service;
+
+import com.example.bookservice.model.Book;
+import com.example.bookservice.repository.BookRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class BookService {
+
+    private final BookRepository bookRepository;
+
+    public BookService(BookRepository bookRepository) {
+        this.bookRepository = bookRepository;
+    }
+
+    public List<Book> getAllBooks() {
+        return bookRepository.findAll();
+    }
+
+    public Book getBookById(String id) {
+        return bookRepository.findById(id).orElse(null);
+    }
+
+    public Book createBook(Book book) {
+        return bookRepository.save(book);
+    }
+
+    public Book updateBook(String id, Book updatedBook) {
+        return bookRepository.findById(id).map(book -> {
+            book.setTitle(updatedBook.getTitle());
+            book.setAuthor(updatedBook.getAuthor());
+            book.setDescription(updatedBook.getDescription());
+            return bookRepository.save(book);
+        }).orElse(null);
+    }
+
+    public void deleteBook(String id) {
+        bookRepository.deleteById(id);
+    }
+}
+##################################################################################
+##################################################################################
+##################################################################################
+UserService:
+##################################################################################Controller
+package com.example.userservice.controller;
+
+import com.example.userservice.model.User;
+import com.example.userservice.service.UserService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+@CrossOrigin("*")
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
+
+    @GetMapping
+    public List<User> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable String id) {
+        User user = userService.getUserById(id);
+        return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+    }
+
+    @PostMapping
+    public User createUser(@Valid @RequestBody User user) {
+        return userService.createUser(user);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable String id, @Valid @RequestBody User updatedUser) {
+        User user = userService.updateUser(id, updatedUser);
+        return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable String id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+##################################################################################Model
+package com.example.userservice.model;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+@Document(collection = "users")
+public class User {
+
+    @Id
+    private String id;
+
+    @NotBlank(message = "Name is required")
+    private String name;
+
+    @Email(message = "Email should be valid")
+    @NotBlank(message = "Email is required")
+    private String email;
+
+    @NotBlank(message = "Password is required")
+    private String password;
+
+    // Constructors, Getters, Setters
+    public User() {}
+
+    public User(String name, String email, String password) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+}
+##################################################################################Repository
+package com.example.userservice.repository;
+
+import com.example.userservice.model.User;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+public interface UserRepository extends MongoRepository<User, String> {
+}
+##################################################################################Service
+package com.example.userservice.service;
+
+import com.example.userservice.model.User;
+import com.example.userservice.repository.UserRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User getUserById(String id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    public User createUser(User user) {
+        return userRepository.save(user);
+    }
+
+    public User updateUser(String id, User updatedUser) {
+        return userRepository.findById(id).map(user -> {
+            user.setName(updatedUser.getName());
+            user.setEmail(updatedUser.getEmail());
+            user.setPassword(updatedUser.getPassword());
+            return userRepository.save(user);
+        }).orElse(null);
+    }
+
+    public void deleteUser(String id) {
+        userRepository.deleteById(id);
+    }
+}
+
+##################################################################################
+##################################################################################
+##################################################################################
+##################################################################################
+##################################################################################
+React
+App.js
+// src/App.js
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import BookList from './components/BookList';
+import UserList from './components/UserList';
+import CreateUser from './components/CreateUser';
+import CreateBook from './components/CreateBook';
+
+function App() {
+  return (
+    <Router>
+      <div className="App">
+        <h1>Library Management System</h1>
+        <Routes>
+          <Route path="/books" element={<BookList />} />
+          <Route path="/users" element={<UserList />} />
+          <Route path="/create-user" element={<CreateUser />} />
+          <Route path="/create-book" element={<CreateBook />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+###################################################################################
+// src/components/BookList.js
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function BookList() {
+  const [books, setBooks] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:8081/api/books')
+      .then(response => {
+        setBooks(response.data);
+      })
+      .catch(error => {
+        console.error('There was an error fetching the books!', error);
+      });
+  }, []);
+
+  return (
+    <div>
+      <h2>Book List</h2>
+      <ul>
+        {books.map(book => (
+          <li key={book.id}>
+            <strong>{book.title}</strong> by {book.author}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default BookList;
+#######################################################################################
+// src/components/CreateBook.js
+
+import React, { useState } from 'react';
+import axios from 'axios';
+
+function CreateBook() {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [description, setDescription] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const book = { title, author, description };
+
+    axios.post('http://localhost:8081/api/books', book)
+      .then(response => {
+        alert('Book created successfully!');
+      })
+      .catch(error => {
+        console.error('There was an error creating the book!', error);
+      });
+  };
+
+  return (
+    <div>
+      <h2>Create Book</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Author"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+        />
+        <textarea
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <button type="submit">Create Book</button>
+      </form>
+    </div>
+  );
+}
+
+export default CreateBook;
+#################################################################################################
+// src/components/CreateUser.js
+
+import React, { useState } from 'react';
+import axios from 'axios';
+
+function CreateUser() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    const user = { name, email, password };
+
+    axios.post('http://localhost:8082/api/users', user)
+      .then(response => {
+        alert('User created successfully!');
+      })
+      .catch(error => {
+        console.error('There was an error creating the user!', error);
+      });
+  };
+
+  return (
+    <div>
+      <h2>Create User</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit">Create User</button>
+      </form>
+    </div>
+  );
+}
+
+export default CreateUser;
+#####################################################################################
+// src/components/UserList.js
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+function UserList() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    axios.get('http://localhost:8082/api/users')
+      .then(response => {
+        setUsers(response.data);
+      })
+      .catch(error => {
+        console.error('There was an error fetching the users!', error);
+      });
+  }, []);
+
+  return (
+    <div>
+      <h2>User List</h2>
+      <ul>
+        {users.map(user => (
+          <li key={user.id}>
+            <strong>{user.name}</strong> - {user.email}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default UserList;
+
