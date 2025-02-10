@@ -552,3 +552,134 @@ public class WireMockPOCTests {
                 .withRequestBody(containsString("\"status\": \"SUCCESS\"")));
     }
 }
+
+import chainlit as cl
+import asyncio
+import matplotlib.pyplot as plt
+import io
+import base64
+
+# Load mock LLM outputs
+OUTPUTS = {}
+
+def load_outputs():
+    try:
+        with open("llm_output.txt", "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return {
+            "hello": "Hi there! How can I assist you today?",
+            "help": "I can demonstrate Chainlit features like streaming responses, interactive UI elements, file uploads, memory, and starter suggestions.",
+            "upload": "You've uploaded a file! I'll simulate an analysis and return a report.",
+            "action_trigger": "{"actions": [{"name": "wikipedia_scraper", "args": {"url": "https://en.wikipedia.org/wiki/Chainlit"}, "display": "Scrape Wikipedia Page"}, {"name": "api_caller", "args": {"name": "michael"}, "display": "Call Agify API"}]}",
+            "image_response": "image",
+            "graph_response": "graph",
+            "button_action": "button",
+            "default": "I'm sorry, I don't understand that command. Please try again."
+        }
+    current_key = None
+    buffer = []
+    outputs = {}
+    for line in lines:
+        line = line.strip()
+        if line.startswith("###"):
+            if current_key and buffer:
+                outputs[current_key] = "\n".join(buffer).strip()
+            current_key = line[3:].strip().lower()
+            buffer = []
+        else:
+            buffer.append(line)
+    if current_key and buffer:
+        outputs[current_key] = "\n".join(buffer).strip()
+    return outputs
+
+OUTPUTS = load_outputs()
+
+def get_response_for_command(command: str) -> str:
+    return OUTPUTS.get(command.lower(), OUTPUTS.get("default", "No response found."))
+
+# In-memory chat history
+chat_memory = {}
+
+@cl.on_chat_start
+def on_chat_start():
+    user_id = cl.user_session.get("id")
+    chat_memory[user_id] = []
+    cl.Message(
+        content=(
+            "Welcome to the advanced Chainlit demo!\n"
+            "Send a message starting with 'action:' to trigger the tool actions.\n"
+            "For example: 'action: trigger tools'"
+        )
+    ).send()
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    user_id = cl.user_session.get("id")
+    chat_memory[user_id].append(message.content)
+    
+    if message.content.lower().startswith("action:"):
+        response = get_response_for_command("action_trigger")
+        action_plan = eval(response)
+        await cl.Message(
+            content="Action plan generated. Chainlit will now execute the following actions:",
+            actions=action_plan["actions"]
+        ).send()
+        return
+    
+    if message.content.lower().startswith("image:"):
+        await send_image_response()
+        return
+    
+    if message.content.lower().startswith("graph:"):
+        await send_graph_response()
+        return
+    
+    if message.content.lower().startswith("button:"):
+        await send_button_response()
+        return
+    
+    if ":" in message.content:
+        command, _ = message.content.split(":", 1)
+        command = command.strip().lower()
+    else:
+        command = "default"
+    response = get_response_for_command(command)
+    chunk_size = 20
+    for i in range(0, len(response), chunk_size):
+        await asyncio.sleep(0.3)
+        cl.send_stream_message(response[i:i+chunk_size])
+    cl.send_stream_message("[DONE]")
+
+async def send_image_response():
+    image_url = "https://via.placeholder.com/300"  # Example placeholder image
+    await cl.Message(content="Here is an image response:", elements=[cl.Image(name="Example Image", url=image_url)]).send()
+
+async def send_graph_response():
+    fig, ax = plt.subplots()
+    ax.plot([1, 2, 3, 4], [10, 20, 25, 30])
+    ax.set_title("Sample Graph")
+    
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    image_url = f"data:image/png;base64,{image_base64}"
+    
+    await cl.Message(content="Here is a graph response:", elements=[cl.Image(name="Generated Graph", url=image_url)]).send()
+
+async def send_button_response():
+    await cl.Message(
+        content="Here is an action button:",
+        actions=[
+            {"name": "example_button", "display": "Click Me", "args": {"message": "Button clicked!"}}
+        ]
+    ).send()
+
+@cl.step(type="tool", name="example_button")
+async def example_button_action(message: str):
+    await cl.Message(content=message).send()
+
+if __name__ == "__main__":
+    cl.run()
+
