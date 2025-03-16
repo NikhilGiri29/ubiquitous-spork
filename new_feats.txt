@@ -1,0 +1,560 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ClipboardList,
+  Filter
+} from "lucide-react";
+
+export default function TransactionsTable(props) {
+  // Sample data if not provided through props
+  const defaultTransactions = [
+    { id: "TX001", date: "2025-03-16", executerId: "EXE123", amount: 1500 },
+    { id: "TX002", date: "2025-03-15", executerId: "EXE456", amount: 2300 },
+    { id: "TX003", date: "2025-03-15", executerId: "EXE123", amount: 750 },
+    { id: "TX004", date: "2025-03-14", executerId: "EXE789", amount: 3100 },
+    { id: "TX005", date: "2025-03-14", executerId: "EXE456", amount: 1250 },
+    { id: "TX006", date: "2025-03-13", executerId: "EXE123", amount: 890 },
+    { id: "TX007", date: "2025-03-13", executerId: "EXE789", amount: 4200 },
+    { id: "TX008", date: "2025-03-12", executerId: "EXE456", amount: 1700 },
+    { id: "TX009", date: "2025-03-12", executerId: "EXE123", amount: 950 },
+    { id: "TX010", date: "2025-03-11", executerId: "EXE789", amount: 2850 },
+    { id: "TX011", date: "2025-03-11", executerId: "EXE456", amount: 1350 },
+    { id: "TX012", date: "2025-03-10", executerId: "EXE123", amount: 670 },
+  ];
+
+  const allTransactions = props.transactions || defaultTransactions;
+  
+  // State
+  const [filteredTransactions, setFilteredTransactions] = useState(allTransactions);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterExecuter, setFilterExecuter] = useState("all");
+  const [showAudit, setShowAudit] = useState(false);
+  const [auditId, setAuditId] = useState(null);
+  
+  // Debug logging
+  // console.log("All transactions:", allTransactions);
+  // console.log("Current page:", currentPage);
+  // console.log("Items per page:", itemsPerPage);
+  // console.log("Filtered transactions:", filteredTransactions);
+  
+  // Get unique executer IDs for filter dropdown
+  const executerIds = [...new Set(allTransactions.map(tx => tx.executerId))];
+  
+  // Apply filters and search
+  useEffect(() => {
+    let result = [...allTransactions]; // Create a new array to avoid mutation issues
+    
+    // Apply executer filter
+    if (filterExecuter && filterExecuter !== "all") {
+      result = result.filter(tx => tx.executerId === filterExecuter);
+    }
+    
+    // Apply search
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(tx => 
+        tx.id.toLowerCase().includes(term) || 
+        tx.executerId.toLowerCase().includes(term) ||
+        tx.date.includes(term)
+      );
+    }
+    
+    // Update state and reset to first page when filters change
+    setFilteredTransactions(result);
+    const maxPage = Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage));
+    if (currentPage > maxPage){
+      setCurrentPage(1);
+    }else{
+      setCurrentPage(currentPage);
+    }
+  }, [searchTerm, filterExecuter, allTransactions]);
+  
+  // Manual page navigation
+  const goToPage = (pageNumber) => {
+    const maxPage = Math.max(1, Math.ceil(filteredTransactions.length / itemsPerPage));
+    const newPage = Math.min(Math.max(1, pageNumber), maxPage);
+    setCurrentPage(newPage);
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (value) => {
+    const newItemsPerPage = Number(value);
+    setItemsPerPage(newItemsPerPage);
+    
+    // Adjust current page to keep items in view
+    const maxPage = Math.ceil(filteredTransactions.length / newItemsPerPage);
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage || 1);
+    }
+  };
+  
+  // Calculate pagination values
+  const totalItems = filteredTransactions.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  
+  // Get current page data
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+  
+  // Handle audit button click
+  const handleAudit = (id) => {
+    setShowAudit(true);
+    setAuditId(id);
+    
+    // Send message to Chainlit
+    sendUserMessage(`Starting audit for ID: ${id}`);
+    
+  };
+  
+  // Reset audit view
+  const resetAudit = () => {
+    setShowAudit(false);
+    setAuditId(null);
+  };
+  
+  // Render audit view
+  if (showAudit) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <span>Auditing Transaction: {auditId}</span>
+            <Button variant="outline" onClick={resetAudit}>
+              Cancel Audit
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-12">
+            <ClipboardList className="h-16 w-16 mb-4 text-primary" />
+            <p className="text-lg font-medium mb-2">Audit in progress</p>
+            <p className="text-sm text-gray-500">
+              The system is now auditing transaction {auditId}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+   // Render main transaction table
+   return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Unaudited Transactions</CardTitle>
+        <div className="flex flex-col gap-4 mt-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search transactions..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select value={filterExecuter} onValueChange={setFilterExecuter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Filter Executer" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Executers</SelectItem>
+                {executerIds.map(id => (
+                  <SelectItem key={id} value={id}>{id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {filterExecuter !== "all" && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setFilterExecuter("all")}
+                title="Clear filter"
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Executer ID</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedTransactions.length > 0 ? (
+                paginatedTransactions.map((transaction) => (
+                  <TableRow key={transaction.id}>
+                    <TableCell className="font-medium">{transaction.id}</TableCell>
+                    <TableCell>{transaction.date}</TableCell>
+                    <TableCell>{transaction.executerId}</TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleAudit(transaction.id)}
+                      >
+                        Audit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-6">
+                    No transactions found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-gray-500">
+            {totalItems > 0 ? (
+              <>Showing {startIndex + 1}-{endIndex} of {totalItems}</>
+            ) : (
+              <>No items to show</>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select 
+              value={itemsPerPage.toString()} 
+              onValueChange={handleItemsPerPageChange}
+            >
+              <SelectTrigger className="w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <div className="text-sm">
+              Page {currentPage} of {totalPages}
+            </div>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
+
+
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MessageSquare, ChevronRight } from "lucide-react";
+
+export default function FollowUpSuggestions() {
+    
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  
+  // Access the suggestions from props.props (Chainlit passes custom properties inside a nested props object)
+  const suggestions = props.suggestions || [
+    "Can you explain this in more detail?",
+    "What are some examples of this?",
+    "How would I implement this?"
+  ];
+  
+  const title = props.title || "Follow-up Suggestions";
+  
+  const handleSuggestionClick = (suggestion, index) => {
+    setSelectedIndex(index);
+    // Send the suggestion as a user message
+    sendUserMessage(suggestion);
+    
+  };
+  
+  return (
+    <Card className="w-full max-w-md border-2 border-primary/10">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-md font-medium flex items-center gap-2">
+          <MessageSquare className="h-4 w-4" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-2">
+          {suggestions.map((suggestion, index) => (
+            <Button
+              key={index}
+              variant={selectedIndex === index ? "default" : "outline"}
+              className="justify-between text-left font-normal hover:bg-primary/10 transition-all"
+              onClick={() => handleSuggestionClick(suggestion, index)}
+              disabled={selectedIndex !== null}
+            >
+              <span>{suggestion}</span>
+              <ChevronRight className="h-4 w-4 ml-2 opacity-70" />
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
+
+import chainlit as cl
+from datetime import datetime, timedelta
+import random
+import json
+
+# Generate some sample transaction data
+def generate_transactions(count=15):
+    transactions = []
+    executer_ids = ["EXE123", "EXE456", "EXE789", "EXE101", "EXE202"]
+    
+    # Start date (2 weeks ago)
+    date = datetime.now() - timedelta(days=14)
+    
+    for i in range(1, count + 1):
+        # Format transaction ID with leading zeros
+        tx_id = f"TX{i:03d}"
+        
+        # Format date as YYYY-MM-DD
+        date_str = date.strftime("%Y-%m-%d")
+        
+        # Random executer ID
+        executer_id = random.choice(executer_ids)
+        
+        # Random amount between 500 and 5000
+        amount = random.randint(500, 5000)
+        
+        transactions.append({
+            "id": tx_id,
+            "date": date_str,
+            "executerId": executer_id,
+            "amount": amount
+        })
+        
+        # Move date forward randomly (0-2 days)
+        date += timedelta(days=random.randint(0, 2))
+    
+    return transactions
+
+@cl.on_chat_start
+async def on_chat_start():
+    await cl.Message(content="👋 Welcome to the Transaction Audit System. How can I help you today?").send()
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    # Check if it's an audit request
+    if message.content.startswith("Starting audit for ID:"):
+        # Extract the transaction ID
+        tx_id = message.content.split("Starting audit for ID:")[1].strip()
+        
+        # Send a confirmation and initiate audit process
+        await cl.Message(content=f"📋 Audit initiated for transaction {tx_id}. Gathering transaction details...").send()
+        
+        # Simulating some processing time
+        await cl.sleep(1)
+        
+        # Send audit results
+        audit_response = f"""
+## Audit Results for Transaction {tx_id}
+
+### Transaction Details
+- **ID:** {tx_id}
+- **Date:** {datetime.now().strftime('%Y-%m-%d')}
+- **Executer:** {tx_id.replace('TX', 'EXE')}
+- **Amount:** ${random.randint(500, 5000)}
+
+### Audit Checks
+✅ Transaction signature verified
+✅ Authorization level confirmed
+✅ Transaction amount within limits
+✅ No duplicate transactions found
+✅ Timestamp validation passed
+
+### Audit Status
+**Result:** PASSED
+**Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+**Audit ID:** AUD-{random.randint(10000, 99999)}
+
+Would you like to review another transaction?
+"""
+        await cl.Message(content=audit_response).send()
+        
+        # Show the transaction table again
+        transactions = generate_transactions()
+        transactions_table = cl.CustomElement(
+            name="TransactionsTable",
+            transactions=transactions
+        )
+        
+        await cl.Message(
+            content="You can review more transactions below:",
+            elements=[transactions_table]
+        ).send()
+    else:
+        # Regular message, show transactions table
+        response = "Here are the recent transactions you can audit:"
+        
+        # Generate sample transactions
+        transactions = generate_transactions()
+        
+        # Create the transactions table component
+        transactions_table = cl.CustomElement(
+            name="TransactionsTable",
+            transactions=transactions
+        )
+        
+        await cl.Message(content=response, elements=[transactions_table]).send()
+
+if __name__ == "__main__":
+    cl.run()
+
+
+
+
+
+import chainlit as cl
+from langchain_google_genai import ChatGoogleGenerativeAI
+from openai import OpenAI
+import os
+from typing import List
+
+from pydantic import SecretStr
+
+llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            temperature=0.7,
+            api_key=SecretStr(os.getenv('GEMINI_API_KEY'))
+        )
+
+async def generate_suggestions(query: str, response: str) -> List[str]:
+    """Generate follow-up suggestions based on the conversation."""
+    try:
+        
+           
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant. Generate 5 relevant follow-up questions based on the conversation."},
+            {"role": "user", "content": f"User query: {query}"},
+            {"role": "assistant", "content": f"My response: {response}"},
+            {"role": "user", "content": "Generate 5 concise follow-up questions the user might want to ask next. Keep them brief and relevant. Return them as numbered list. Do not return anything else except the list"}
+        ]
+         
+        completion = llm.invoke(messages)
+
+        
+        # Parse the suggestions from the response
+        suggestions_text = completion.content
+        
+        # Clean up the response to get a proper list
+        suggestions = []
+        for line in suggestions_text.strip().split("\n"):
+            # Remove numbers, quotes, and other formatting
+            clean_line = line.strip().lstrip("0123456789.\"'- []").rstrip("\"',]")
+            if clean_line and len(clean_line) > 5:  # Avoid empty or very short lines
+                suggestions.append(clean_line)
+        
+        print(suggestions)
+        # Take first 5 or pad if fewer
+
+        suggestions = suggestions[:5]
+
+        return suggestions
+    except Exception as e:
+        print(f"Error generating suggestions: {e}")
+        return [
+            "Can you explain this further?",
+            "What are some examples?",
+            "How would I implement this?",
+            "What are the alternatives?",
+            "What are the best practices?"
+        ]
+
+@cl.on_chat_start
+async def on_chat_start():
+    await cl.Message(content="👋 Welcome! Ask me anything.").send()
+
+@cl.on_message
+async def on_message(message: cl.Message):
+    # For now, just echo the message back (you would replace this with your LLM response)
+    response = llm.invoke(message.content).content
+    
+    # Generate suggestions based on the conversation
+    suggestions = await generate_suggestions(message.content, response)
+    
+    # Send the response
+    await cl.Message(content=response).send()
+    
+    # Add the suggestions component
+    suggestions_element = cl.CustomElement(
+        name="FollowUpSuggestions", 
+        props={
+            "suggestions": suggestions,
+            "title": "You may also ask:"
+        }
+    )
+    
+    # Send an empty message with just the suggestions element
+    await cl.Message(
+        content="",
+        elements=[suggestions_element],
+        author="Suggestions"
+    ).send()
+
+if __name__ == "__main__":
+    cl.run()
