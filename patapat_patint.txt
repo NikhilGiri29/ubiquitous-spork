@@ -1,0 +1,137 @@
+**Title:** Method and System for Securing Agentic AI-Led Browser-Based Transaction Repairs Using Dynamic Input Suppression Overlay
+
+**Abstract:** A method and system for preventing user interference during agentic AI-led browser-based transaction repairs. This invention injects a JavaScript-based overlay to suppress user interactions while allowing agentic AI systems to autonomously correct transactional issues. The overlay displays an informative message and includes a user-initiated kill switch, ensuring security, data integrity, compliance, and user trust. Accessibility and performance considerations are integrated to support inclusive and robust implementation.
+
+---
+
+**Background of the Invention:**
+
+In modern banking systems, agentic AI is increasingly responsible for initiating autonomous actions to resolve transaction errors. These repairs often take place within a web browser during active user sessions. However, if users continue interacting with the application during these AI-led processes, it may result in race conditions, security breaches, and regulatory violations.
+
+Traditional browser automation does not prevent real-time user inputs, which can lead to overlapping changes, corrupt data states, and operational failure. There exists a need for a secure, temporary mechanism that restricts user interaction during such AI processes.
+
+---
+
+**Summary of the Invention:**
+
+This invention introduces a dynamic, full-screen JavaScript overlay that prevents user input during agentic AI transaction repairs. The overlay appears after a human-in-the-loop step (e.g., credential input), locking out user interactions with the underlying page. It displays a message notifying the user of the ongoing repair and includes a “Stop” button as a kill switch.
+
+The overlay is injected programmatically by the agentic AI system and is removed either upon task completion or user cancellation. This approach mitigates interference, secures operations, and maintains compliance.
+
+---
+
+**Brief Description of the Drawings:**
+
+**Figure 1:** System architecture diagram showing the interaction between browser, AI agent, and overlay injection engine.
+
+**Figure 2:** Sequence diagram illustrating:
+
+1. User initiates transaction.
+2. AI detects issue and triggers repair.
+3. JavaScript overlay is injected.
+4. User inputs blocked.
+5. AI completes repair.
+6. Overlay removed.
+
+**Figure 3:** Screenshot mockup of overlay with "Agentic AI is repairing the transaction. Click Stop to cancel."
+
+---
+
+**Detailed Description of the Invention:**
+
+1. **System Components:**
+
+   * **Frontend Browser:** Hosts the application interface.
+   * **Agentic AI Engine:** Monitors transactions and initiates repairs.
+   * **Overlay Injection Module:** Sends JavaScript to client browser.
+   * **Control Handler:** Manages user-initiated kill switch events.
+
+2. **Overlay Behavior:**
+
+   * CSS properties include `position: fixed`, `pointer-events: auto`, and `z-index: 9999`.
+   * Disables interaction with all background elements.
+   * Text and button centrally displayed.
+
+3. **JavaScript Snippet:**
+
+```javascript
+function showOverlay() {
+  const overlay = document.createElement('div');
+  overlay.id = 'repair-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+  `;
+  overlay.innerHTML = `
+    <div style="background: white; padding: 20px; border-radius: 5px; text-align: center;">
+      <h2>Agentic AI is repairing the transaction</h2>
+      <button id="stop-button" style="margin-top: 10px;">Stop</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById('stop-button').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    // Signal backend to abort repair
+  });
+}
+```
+
+4. **Trigger Mechanism:**
+
+   * Overlay injection occurs immediately after credential verification.
+   * Ensures agentic AI has uninterrupted control.
+
+5. **Security Considerations:**
+
+   * JavaScript is securely injected via same-origin policy.
+   * Code sanitization ensures protection from XSS attacks.
+
+6. **Accessibility:**
+
+   * High-contrast colors for readability.
+   * Keyboard navigable.
+   * Compatible with screen readers.
+
+---
+
+**Claims:**
+
+1. A method for securing agentic AI transaction repair in browsers, comprising:
+
+   * detecting repair trigger post user input,
+   * injecting a JavaScript overlay blocking all user interaction,
+   * displaying status message and kill switch,
+   * removing overlay upon completion or termination.
+
+2. The method of claim 1, wherein the overlay uses CSS styles to prevent pointer interaction with page elements.
+
+3. The method of claim 1, wherein user interaction with the kill switch signals the backend to abort repair operations.
+
+4. The method of claim 1, further comprising accessibility features including keyboard navigation and screen reader compatibility.
+
+5. The method of claim 1, wherein all overlay actions are logged for compliance auditing.
+
+---
+
+**Advantages of the Invention:**
+
+* Prevents transactional errors due to user interference.
+* Ensures AI-driven repairs operate in a controlled, secure environment.
+* Improves user communication and trust.
+* Aids in regulatory compliance.
+* Simple and lightweight integration.
+
+---
+
+**Conclusion:**
+
+The disclosed system provides a robust, browser-level input suppression method via a JavaScript overlay to support autonomous AI transaction repair. It preserves operational integrity, enhances security, and ensures regulatory compliance without sacrificing user agency. This invention is critical for the next wave of secure, agentic banking automation.
