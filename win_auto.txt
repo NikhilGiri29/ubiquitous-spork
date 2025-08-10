@@ -1,0 +1,238 @@
+import pywinauto
+from pywinauto import Application
+from pywinauto.findwindows import ElementNotFoundError
+import time
+
+def list_all_elements(element, depth=0):
+    """
+    Recursively list all UI elements with their properties
+    """
+    indent = "  " * depth
+    
+    try:
+        # Get element properties
+        element_info = {
+            'class_name': getattr(element, 'class_name', 'N/A'),
+            'window_text': getattr(element, 'window_text', 'N/A'),
+            'control_id': getattr(element, 'control_id', 'N/A'),
+            'automation_id': getattr(element, 'automation_id', 'N/A'),
+            'control_type': getattr(element, 'control_type', 'N/A'),
+            'rectangle': getattr(element, 'rectangle', 'N/A'),
+            'is_enabled': getattr(element, 'is_enabled', 'N/A'),
+            'is_visible': getattr(element, 'is_visible', 'N/A')
+        }
+        
+        # Print element information
+        print(f"{indent}Element #{depth}:")
+        print(f"{indent}  Class Name: {element_info['class_name']}")
+        print(f"{indent}  Window Text: '{element_info['window_text']}'")
+        print(f"{indent}  Control ID: {element_info['control_id']}")
+        print(f"{indent}  Automation ID: '{element_info['automation_id']}'")
+        print(f"{indent}  Control Type: {element_info['control_type']}")
+        print(f"{indent}  Rectangle: {element_info['rectangle']}")
+        print(f"{indent}  Enabled: {element_info['is_enabled']}")
+        print(f"{indent}  Visible: {element_info['is_visible']}")
+        print(f"{indent}  {'='*50}")
+        
+        # Try to get children elements
+        try:
+            children = element.children()
+            for i, child in enumerate(children):
+                list_all_elements(child, depth + 1)
+        except Exception as e:
+            print(f"{indent}  No children or error accessing children: {e}")
+            
+    except Exception as e:
+        print(f"{indent}Error getting element info: {e}")
+
+def connect_to_application():
+    """
+    Connect to application - provides multiple methods
+    """
+    print("Choose connection method:")
+    print("1. Connect by window title")
+    print("2. Connect by process name/path")
+    print("3. Connect by process ID")
+    print("4. List all running applications")
+    
+    choice = input("Enter your choice (1-4): ").strip()
+    
+    if choice == "1":
+        title = input("Enter window title (partial match works): ").strip()
+        try:
+            app = Application().connect(title_re=f".*{title}.*")
+            window = app.window(title_re=f".*{title}.*")
+            return app, window
+        except ElementNotFoundError:
+            print(f"Could not find window with title containing '{title}'")
+            return None, None
+            
+    elif choice == "2":
+        process = input("Enter process name (e.g., notepad.exe) or full path: ").strip()
+        try:
+            app = Application().connect(path=process)
+            # Get the main window
+            window = app.top_window()
+            return app, window
+        except ElementNotFoundError:
+            print(f"Could not find process '{process}'")
+            return None, None
+            
+    elif choice == "3":
+        try:
+            pid = int(input("Enter process ID: ").strip())
+            app = Application().connect(process=pid)
+            window = app.top_window()
+            return app, window
+        except (ValueError, ElementNotFoundError) as e:
+            print(f"Could not connect to process ID: {e}")
+            return None, None
+            
+    elif choice == "4":
+        print("\nListing all windows with titles:")
+        try:
+            from pywinauto import Desktop
+            windows = Desktop(backend="uia").windows()
+            for i, window in enumerate(windows):
+                try:
+                    title = window.window_text()
+                    class_name = window.class_name()
+                    if title:  # Only show windows with titles
+                        print(f"{i+1}. Title: '{title}' | Class: '{class_name}'")
+                except:
+                    pass
+        except Exception as e:
+            print(f"Error listing windows: {e}")
+        return None, None
+    
+    else:
+        print("Invalid choice")
+        return None, None
+
+def inspect_specific_element(window):
+    """
+    Allow user to inspect specific elements by various criteria
+    """
+    print("\nInspect specific element:")
+    print("1. By automation ID")
+    print("2. By window text")
+    print("3. By class name")
+    print("4. By control type")
+    
+    choice = input("Enter choice (1-4): ").strip()
+    
+    try:
+        if choice == "1":
+            auto_id = input("Enter automation ID: ").strip()
+            element = window.child_window(auto_id=auto_id)
+        elif choice == "2":
+            text = input("Enter window text: ").strip()
+            element = window.child_window(title=text)
+        elif choice == "3":
+            class_name = input("Enter class name: ").strip()
+            element = window.child_window(class_name=class_name)
+        elif choice == "4":
+            control_type = input("Enter control type (e.g., Edit, Button): ").strip()
+            element = window.child_window(control_type=control_type)
+        else:
+            print("Invalid choice")
+            return
+        
+        print(f"\nFound element, details:")
+        list_all_elements(element, 0)
+        
+        # Test interaction
+        test_interaction = input("\nTest interaction? (y/n): ").strip().lower()
+        if test_interaction == 'y':
+            test_element_interaction(element)
+            
+    except Exception as e:
+        print(f"Could not find element: {e}")
+
+def test_element_interaction(element):
+    """
+    Test basic interactions with an element
+    """
+    try:
+        control_type = getattr(element, 'control_type', 'Unknown')
+        print(f"Element control type: {control_type}")
+        
+        if 'Edit' in control_type or 'Text' in control_type:
+            print("This appears to be a text input element")
+            test_text = input("Enter text to input (or press Enter to skip): ").strip()
+            if test_text:
+                element.set_text(test_text)
+                print("Text entered successfully!")
+                
+        elif 'Button' in control_type:
+            print("This appears to be a button")
+            click_test = input("Click this button? (y/n): ").strip().lower()
+            if click_test == 'y':
+                element.click()
+                print("Button clicked!")
+                
+        else:
+            print(f"Control type '{control_type}' - limited interaction testing available")
+            
+    except Exception as e:
+        print(f"Error during interaction test: {e}")
+
+def main():
+    print("Windows UI Elements Inspector")
+    print("=" * 40)
+    
+    # Install pywinauto if not available
+    try:
+        import pywinauto
+    except ImportError:
+        print("pywinauto not found. Install it using:")
+        print("pip install pywinauto")
+        return
+    
+    # Connect to application
+    app, window = connect_to_application()
+    
+    if app is None or window is None:
+        print("Could not connect to application")
+        return
+    
+    try:
+        print(f"\nConnected successfully!")
+        print(f"Main window title: '{window.window_text()}'")
+        print(f"Main window class: '{window.class_name()}'")
+        
+        while True:
+            print("\nOptions:")
+            print("1. List all elements in the window")
+            print("2. Inspect specific element")
+            print("3. Refresh window reference")
+            print("4. Exit")
+            
+            choice = input("Enter choice (1-4): ").strip()
+            
+            if choice == "1":
+                print(f"\nListing all elements for window: '{window.window_text()}'")
+                print("=" * 60)
+                list_all_elements(window)
+                
+            elif choice == "2":
+                inspect_specific_element(window)
+                
+            elif choice == "3":
+                print("Refreshing window reference...")
+                window = app.top_window()
+                print(f"Refreshed. Current window: '{window.window_text()}'")
+                
+            elif choice == "4":
+                print("Exiting...")
+                break
+                
+            else:
+                print("Invalid choice")
+                
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Make sure the application is running and accessible")
+
+if __name__ == "__main__":
+    main()
