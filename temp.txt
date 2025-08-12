@@ -1,41 +1,102 @@
-import asyncio
-from autogen_agentchat.agents import AssistantAgent
-from autogen_ext.models.openai import OpenAIChatCompletionClient
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.text import PP_ALIGN
+from pptx.dml.color import RGBColor
 
-async def main() -> None:
-    agent = AssistantAgent("assistant", OpenAIChatCompletionClient(model="gpt-4o"))
-    print(await agent.run(task="Say 'Hello World!'"))
+def add_text_slide(prs, title, content, font_size=14, monospace=False):
+    slide_layout = prs.slide_layouts[1]
+    slide = prs.slides.add_slide(slide_layout)
+    slide.shapes.title.text = title
 
-asyncio.run(main())
+    tf = slide.placeholders[1].text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+    run = p.add_run()
+    run.text = content
+    run.font.size = Pt(font_size)
+    run.font.name = 'Courier New' if monospace else 'Calibri'
+    return slide
 
+def add_langchain_diagram(prs):
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "LangChain Workflow Diagram"
 
+    shapes = slide.shapes
 
+    # Create boxes
+    prompt_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(2), Inches(2), Inches(1))
+    prompt_box.text = "Prompt Template"
+    llm_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3), Inches(2), Inches(2), Inches(1))
+    llm_box.text = "LLM"
+    parser_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(2), Inches(2), Inches(1))
+    parser_box.text = "Output Parser"
+    output_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(8), Inches(2), Inches(2), Inches(1))
+    output_box.text = "Final Output"
 
+    # Retrieval box (optional step)
+    retrieval_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3), Inches(0.5), Inches(2), Inches(1))
+    retrieval_box.text = "Retriever / Vector DB"
 
+    # Arrows
+    shapes.add_connector(1, Inches(2.5), Inches(2.5), Inches(3), Inches(2.5))
+    shapes.add_connector(1, Inches(5), Inches(2.5), Inches(5.5), Inches(2.5))
+    shapes.add_connector(1, Inches(7.5), Inches(2.5), Inches(8), Inches(2.5))
+    shapes.add_connector(1, Inches(4), Inches(1.5), Inches(4), Inches(2))  # From retriever to LLM
 
+def add_langgraph_diagram(prs):
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    slide.shapes.title.text = "LangGraph Branching Diagram"
 
-import asyncio
-from autogen_agentchat.ui import Console
-from autogen_agentchat.teams import RoundRobinGroupChat
-from autogen_ext.models.openai import OpenAIChatCompletionClient
-from autogen_ext.agents.web_surfer import MultimodalWebSurfer
+    shapes = slide.shapes
 
+    start_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(2), Inches(2), Inches(1))
+    start_box.text = "Input"
 
-async def main() -> None:
-    # Define an agent
-    web_surfer_agent = MultimodalWebSurfer(
-        name="MultimodalWebSurfer",
-        model_client=OpenAIChatCompletionClient(model="gpt-4o-2024-08-06"),
-    )
+    router_box = shapes.add_shape(MSO_SHAPE.DIAMOND, Inches(3), Inches(2), Inches(2), Inches(1.5))
+    router_box.text = "Router Node"
 
-    # Define a team
-    agent_team = RoundRobinGroupChat([web_surfer_agent], max_turns=3)
+    calc_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(0.5), Inches(2), Inches(1))
+    calc_box.text = "Calc Tool"
 
-    # Run the team and stream messages to the console
-    stream = agent_team.run_stream(task="Navigate to the AutoGen readme on GitHub.")
-    await Console(stream)
-    # Close the browser controlled by the agent
-    await web_surfer_agent.close()
+    answer_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(3.5), Inches(2), Inches(1))
+    answer_box.text = "Answer with LLM"
 
+    end_box = shapes.add_shape(MSO_SHAPE.OVAL, Inches(8), Inches(2), Inches(2), Inches(1))
+    end_box.text = "END"
 
-asyncio.run(main())
+    # Connectors
+    shapes.add_connector(1, Inches(2.5), Inches(2.5), Inches(3), Inches(2.5))  # start -> router
+    shapes.add_connector(1, Inches(4.5), Inches(2), Inches(5.5), Inches(1))    # router -> calc
+    shapes.add_connector(1, Inches(4.5), Inches(3), Inches(5.5), Inches(4))    # router -> answer
+    shapes.add_connector(1, Inches(7.5), Inches(1), Inches(8), Inches(2.5))    # calc -> end
+    shapes.add_connector(1, Inches(7.5), Inches(4), Inches(8), Inches(2.5))    # answer -> end
+
+# Build presentation
+prs = Presentation()
+
+# Existing example slides
+add_text_slide(prs, "Building LLM Applications with LangChain and LangGraph",
+               "Concepts, Architecture, and Hands-on Examples\nPresenter: Your Name\nDate: Aug 12, 2025",
+               font_size=18)
+add_text_slide(prs, "LangChain Minimal Example",
+               '''from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a concise expert."),
+    ("human", "Question: {question}")
+])
+chain = prompt | llm | StrOutputParser()
+print(chain.invoke({"question": "Explain vector embeddings"}))''',
+               monospace=True)
+
+# Add diagrams
+add_langchain_diagram(prs)
+add_langgraph_diagram(prs)
+
+# Save presentation
+prs.save("LangChain_LangGraph_Full_With_Diagrams.pptx")
+print("Presentation saved as LangChain_LangGraph_Full_With_Diagrams.pptx")
