@@ -1,102 +1,129 @@
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
-from pptx.dml.color import RGBColor
-
-def add_text_slide(prs, title, content, font_size=14, monospace=False):
-    slide_layout = prs.slide_layouts[1]
-    slide = prs.slides.add_slide(slide_layout)
-    slide.shapes.title.text = title
-
-    tf = slide.placeholders[1].text_frame
-    tf.clear()
-    p = tf.paragraphs[0]
-    run = p.add_run()
-    run.text = content
-    run.font.size = Pt(font_size)
-    run.font.name = 'Courier New' if monospace else 'Calibri'
-    return slide
-
-def add_langchain_diagram(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[5])
-    slide.shapes.title.text = "LangChain Workflow Diagram"
-
-    shapes = slide.shapes
-
-    # Create boxes
-    prompt_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(2), Inches(2), Inches(1))
-    prompt_box.text = "Prompt Template"
-    llm_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3), Inches(2), Inches(2), Inches(1))
-    llm_box.text = "LLM"
-    parser_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(2), Inches(2), Inches(1))
-    parser_box.text = "Output Parser"
-    output_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(8), Inches(2), Inches(2), Inches(1))
-    output_box.text = "Final Output"
-
-    # Retrieval box (optional step)
-    retrieval_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3), Inches(0.5), Inches(2), Inches(1))
-    retrieval_box.text = "Retriever / Vector DB"
-
-    # Arrows
-    shapes.add_connector(1, Inches(2.5), Inches(2.5), Inches(3), Inches(2.5))
-    shapes.add_connector(1, Inches(5), Inches(2.5), Inches(5.5), Inches(2.5))
-    shapes.add_connector(1, Inches(7.5), Inches(2.5), Inches(8), Inches(2.5))
-    shapes.add_connector(1, Inches(4), Inches(1.5), Inches(4), Inches(2))  # From retriever to LLM
-
-def add_langgraph_diagram(prs):
-    slide = prs.slides.add_slide(prs.slide_layouts[5])
-    slide.shapes.title.text = "LangGraph Branching Diagram"
-
-    shapes = slide.shapes
-
-    start_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(2), Inches(2), Inches(1))
-    start_box.text = "Input"
-
-    router_box = shapes.add_shape(MSO_SHAPE.DIAMOND, Inches(3), Inches(2), Inches(2), Inches(1.5))
-    router_box.text = "Router Node"
-
-    calc_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(0.5), Inches(2), Inches(1))
-    calc_box.text = "Calc Tool"
-
-    answer_box = shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(5.5), Inches(3.5), Inches(2), Inches(1))
-    answer_box.text = "Answer with LLM"
-
-    end_box = shapes.add_shape(MSO_SHAPE.OVAL, Inches(8), Inches(2), Inches(2), Inches(1))
-    end_box.text = "END"
-
-    # Connectors
-    shapes.add_connector(1, Inches(2.5), Inches(2.5), Inches(3), Inches(2.5))  # start -> router
-    shapes.add_connector(1, Inches(4.5), Inches(2), Inches(5.5), Inches(1))    # router -> calc
-    shapes.add_connector(1, Inches(4.5), Inches(3), Inches(5.5), Inches(4))    # router -> answer
-    shapes.add_connector(1, Inches(7.5), Inches(1), Inches(8), Inches(2.5))    # calc -> end
-    shapes.add_connector(1, Inches(7.5), Inches(4), Inches(8), Inches(2.5))    # answer -> end
-
-# Build presentation
-prs = Presentation()
-
-# Existing example slides
-add_text_slide(prs, "Building LLM Applications with LangChain and LangGraph",
-               "Concepts, Architecture, and Hands-on Examples\nPresenter: Your Name\nDate: Aug 12, 2025",
-               font_size=18)
-add_text_slide(prs, "LangChain Minimal Example",
-               '''from langchain_openai import ChatOpenAI
+import os
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a concise expert."),
-    ("human", "Question: {question}")
-])
-chain = prompt | llm | StrOutputParser()
-print(chain.invoke({"question": "Explain vector embeddings"}))''',
-               monospace=True)
+# ==========================================
+# 1. CONFIGURATION
+# ==========================================
 
-# Add diagrams
-add_langchain_diagram(prs)
-add_langgraph_diagram(prs)
+# Replace these with your specific details
+os.environ["OPENAI_API_KEY"] = "sk-..."  # Your API Key
+CUSTOM_BASE_URL = "https://your-abstracted-api.com/v1" # Your Abstracted API URL
 
-# Save presentation
-prs.save("LangChain_LangGraph_Full_With_Diagrams.pptx")
-print("Presentation saved as LangChain_LangGraph_Full_With_Diagrams.pptx")
+# File Paths
+PLATFORM_DOCS_PATH = "platform_docs.pdf" # Your documentation with diagrams/info
+AUDIT_TRAIL_PATH = "audit_trail.pdf"     # The specific request log you want to analyze
+
+# Initialize the LLM
+# We use a large context model (like gpt-4-turbo or 32k context models) 
+# because we are stuffing all docs in.
+llm = ChatOpenAI(
+    base_url=CUSTOM_BASE_URL,
+    model="gpt-4", # Or your specific model name
+    temperature=0
+)
+
+# ==========================================
+# 2. DATA LOADING (No Vector Store)
+# ==========================================
+
+def load_pdf_text(file_path):
+    """
+    Loads a PDF and combines all pages into a single string.
+    Using PyPDFLoader for reliability.
+    """
+    loader = PyPDFLoader(file_path)
+    pages = loader.load()
+    
+    # Merge all pages into one large text block, keeping page numbers for reference
+    full_text = ""
+    for page in pages:
+        full_text += f"\n--- Page {page.metadata.get('page_label', page.metadata.get('page', 'Unknown'))} ---\n"
+        full_text += page.page_content
+    
+    return full_text
+
+print(f"Loading Platform Docs from {PLATFORM_DOCS_PATH}...")
+platform_context = load_pdf_text(PLATFORM_DOCS_PATH)
+
+print(f"Loading Audit Trail from {AUDIT_TRAIL_PATH}...")
+audit_trail_content = load_pdf_text(AUDIT_TRAIL_PATH)
+
+# ==========================================
+# 3. PHASE 1: THE INSIGHT GENERATOR
+# ==========================================
+
+print("\nRunning Phase 1: Analyzing Request State...")
+
+insight_prompt = ChatPromptTemplate.from_template("""
+You are a Senior Support Engineer analyzing a stuck request.
+
+I have provided the PLATFORM DOCUMENTATION below. Use this to interpret the AUDIT TRAIL.
+
+<PLATFORM_DOCUMENTATION>
+{platform_context}
+</PLATFORM_DOCUMENTATION>
+
+<AUDIT_TRAIL_TO_ANALYZE>
+{audit_trail}
+</AUDIT_TRAIL_TO_ANALYZE>
+
+YOUR TASK:
+1. Analyze the Audit Trail step-by-step.
+2. Compare the steps against the Platform Documentation to understand the flow.
+3. Determine the current state of the request (e.g., Stuck, Failed, Waiting).
+4. Identify the likely root cause (e.g., Timeout, Missing Data, Logic Gap).
+
+Output your analysis clearly.
+""")
+
+# Create the chain
+analysis_chain = insight_prompt | llm | StrOutputParser()
+
+# Invoke the chain
+analysis_result = analysis_chain.invoke({
+    "platform_context": platform_context,
+    "audit_trail": audit_trail_content
+})
+
+print("--- ANALYSIS RESULT ---")
+print(analysis_result)
+
+
+# ==========================================
+# 4. PHASE 2: THE META-ANALYSIS (Feedback Loop)
+# ==========================================
+
+print("\nRunning Phase 2: Identifying Useful Chunks & Gaps...")
+
+meta_prompt = ChatPromptTemplate.from_template("""
+You just performed an analysis on an audit trail. Now I need you to critique your own logic and the documentation quality.
+
+<PROVIDED_PLATFORM_DOCS>
+{platform_context}
+</PROVIDED_PLATFORM_DOCS>
+
+<YOUR_ANALYSIS>
+{analysis_result}
+</YOUR_ANALYSIS>
+
+Based on the above, answer these two questions strictly:
+
+1. **USEFUL KNOWLEDGE**: Quote the specific text or sections from the <PROVIDED_PLATFORM_DOCS> that were most critical in forming your analysis. (Mention Page numbers if available).
+
+2. **MISSING INFORMATION**: What specific details were present in the Audit Trail but NOT explained in the Platform Docs? (e.g., "The audit trail mentions 'Error Code 503' but the docs do not list error codes", or "The audit trail shows a 'VerifierService' but the docs don't explain what that service does").
+""")
+
+# Create the meta chain
+meta_chain = meta_prompt | llm | StrOutputParser()
+
+# Invoke the meta chain
+meta_result = meta_chain.invoke({
+    "platform_context": platform_context,
+    "analysis_result": analysis_result
+})
+
+print("--- META ANALYSIS ---")
+print(meta_result)
